@@ -57,4 +57,4 @@ class WalletConnector {
     }
 }
 
-export default WalletConnector; 
+export default WalletConnector;
