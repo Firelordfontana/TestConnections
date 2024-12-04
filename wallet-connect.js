@@ -11,38 +11,46 @@ class WalletConnector {
 
             // Load WalletConnect Core packages
             await Promise.all([
-                this.loadScript('https://unpkg.com/@web3modal/ethereum@2.7.1/dist/index.umd.js'),
-                this.loadScript('https://unpkg.com/@walletconnect/ethereum-provider@2.10.6/dist/index.umd.js')
+                this.loadScript('https://unpkg.com/@walletconnect/sign-client@2.10.6/dist/index.umd.js'),
+                this.loadScript('https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js')
             ]);
 
-            // Initialize provider
-            const provider = await window.WalletConnect.init({
+            // Initialize SignClient
+            const signClient = await window.SignClient.init({
                 projectId: '3da84389044f209842d3525861bd5d02',
-                chains: ['xrpl:1'],
-                showQrModal: true,
                 metadata: {
                     name: 'XRPL Demo',
                     description: 'XRPL Connection Demo',
                     url: window.location.origin,
                     icons: ['https://walletconnect.com/walletconnect-logo.png']
-                },
-                mobileLinks: ['trust']
+                }
+            });
+
+            // Create connection
+            const { uri, approval } = await signClient.connect({
+                requiredNamespaces: {
+                    xrpl: {
+                        methods: ['sign_transaction'],
+                        chains: ['xrpl:1'],
+                        events: []
+                    }
+                }
             });
 
             if (this.isMobile()) {
                 // Use Trust Wallet's universal link for iOS
-                const uri = await provider.getWalletConnectUri();
                 window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
             } else {
-                // Show QR code modal on desktop
-                await provider.connect();
+                // Show QR code for desktop
+                this.showQRCode(uri);
             }
 
+            const session = await approval();
             this.connected = true;
             this.emit('stateChange', { state: 'connected' });
-            console.log('Connected successfully!');
+            console.log('Connected successfully!', session);
 
-            return provider;
+            return session;
 
         } catch (error) {
             console.error('Connection error:', error);
