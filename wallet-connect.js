@@ -9,32 +9,65 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load WalletConnect Core SDK
-            await this.loadScript('https://unpkg.com/@walletconnect/ethereum-provider@2.10.6/dist/index.umd.js');
+            // Load WalletConnect Modal SDK
+            await this.loadScript('https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js');
             
-            // Initialize WalletConnect
-            const provider = await window.WalletConnectProvider.init({
+            // Initialize WalletConnect Modal
+            const modal = new window.WalletConnectModal({
                 projectId: '3da84389044f209842d3525861bd5d02',
                 chains: ['xrpl:1'],
-                showQrModal: true,
-                metadata: {
-                    name: 'XRPL Demo',
-                    description: 'XRPL Connection Demo',
-                    url: window.location.origin,
-                    icons: ['https://walletconnect.com/walletconnect-logo.png']
+                enableExplorer: true,
+                mobileWallets: [
+                    {
+                        id: 'trust',
+                        name: 'Trust Wallet',
+                        links: {
+                            native: 'trust://wc',
+                            universal: 'https://link.trustwallet.com/wc'
+                        }
+                    }
+                ]
+            });
+
+            // Get WalletConnect URI
+            const { uri } = await modal.connect({
+                requiredNamespaces: {
+                    xrpl: {
+                        methods: ['sign_transaction'],
+                        chains: ['xrpl:1'],
+                        events: ['chainChanged', 'accountsChanged']
+                    }
                 }
             });
 
-            console.log('WalletConnect initialized, attempting connection...');
+            if (this.isMobile()) {
+                // Use Trust Wallet's official deep linking format
+                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
+            } else {
+                // Show QR code modal on desktop
+                await modal.openModal();
+            }
 
-            // Connect
-            await provider.connect();
-            
-            this.connected = true;
-            this.emit('stateChange', { state: 'connected' });
-            console.log('Connected successfully!');
+            return new Promise((resolve, reject) => {
+                modal.on('connect', (session) => {
+                    this.connected = true;
+                    this.emit('stateChange', { state: 'connected' });
+                    console.log('Connected successfully!', session);
+                    resolve(session);
+                });
 
-            return provider;
+                modal.on('error', (error) => {
+                    console.error('Connection error:', error);
+                    reject(error);
+                });
+
+                // Add timeout
+                setTimeout(() => {
+                    if (!this.connected) {
+                        reject(new Error('Connection timeout'));
+                    }
+                }, 30000);
+            });
 
         } catch (error) {
             console.error('Connection error:', error);
