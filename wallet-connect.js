@@ -9,14 +9,18 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load WalletConnect Modal SDK
-            await this.loadScript('https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js');
-            
-            // Initialize WalletConnect Modal
-            const modal = new window.WalletConnectModal({
+            // Load WalletConnect Core packages
+            await Promise.all([
+                this.loadScript('https://unpkg.com/@walletconnect/web3modal@2.7.1/dist/index.umd.js'),
+                this.loadScript('https://unpkg.com/@walletconnect/core@2.10.6/dist/index.umd.js')
+            ]);
+
+            // Initialize Web3Modal
+            const web3Modal = new window.Web3Modal({
                 projectId: '3da84389044f209842d3525861bd5d02',
                 chains: ['xrpl:1'],
-                enableExplorer: true,
+                defaultChain: 'xrpl:1',
+                themeMode: 'light',
                 mobileWallets: [
                     {
                         id: 'trust',
@@ -29,34 +33,32 @@ class WalletConnector {
                 ]
             });
 
-            // Get WalletConnect URI
-            const { uri } = await modal.connect({
-                requiredNamespaces: {
-                    xrpl: {
-                        methods: ['sign_transaction'],
-                        chains: ['xrpl:1'],
-                        events: ['chainChanged', 'accountsChanged']
-                    }
-                }
-            });
-
             if (this.isMobile()) {
-                // Use Trust Wallet's official deep linking format
-                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
+                // Use Trust Wallet's universal link for iOS
+                const wcUri = await web3Modal.getWalletConnectUri();
+                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(wcUri)}`;
             } else {
                 // Show QR code modal on desktop
-                await modal.openModal();
+                await web3Modal.openModal();
             }
 
             return new Promise((resolve, reject) => {
-                modal.on('connect', (session) => {
+                web3Modal.subscribeModal((state) => {
+                    if (state.open) {
+                        console.log('Modal opened');
+                    } else {
+                        console.log('Modal closed');
+                    }
+                });
+
+                web3Modal.on('connect', (session) => {
                     this.connected = true;
                     this.emit('stateChange', { state: 'connected' });
                     console.log('Connected successfully!', session);
                     resolve(session);
                 });
 
-                modal.on('error', (error) => {
+                web3Modal.on('error', (error) => {
                     console.error('Connection error:', error);
                     reject(error);
                 });
