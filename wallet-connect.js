@@ -12,7 +12,7 @@ class WalletConnector {
             // Load WalletConnect Core packages
             await Promise.all([
                 this.loadScript('https://unpkg.com/@walletconnect/sign-client@2.10.6/dist/index.umd.js'),
-                this.loadScript('https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js')
+                this.loadScript('https://unpkg.com/qrcode@1.5.3/lib/browser.js')
             ]);
 
             // Initialize SignClient
@@ -57,6 +57,42 @@ class WalletConnector {
             this.emit('error', error);
             throw error;
         }
+    }
+
+    showQRCode(uri) {
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        container.style.background = 'white';
+        container.style.padding = '20px';
+        container.style.borderRadius = '10px';
+        container.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        container.style.zIndex = '1000';
+
+        const qrCanvas = document.createElement('canvas');
+        container.appendChild(qrCanvas);
+
+        // Create QR code
+        window.QRCode.toCanvas(qrCanvas, uri, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#ffffff'
+            }
+        });
+
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.style.marginTop = '10px';
+        closeButton.style.padding = '8px 16px';
+        closeButton.onclick = () => container.remove();
+        container.appendChild(closeButton);
+
+        document.body.appendChild(container);
     }
 
     loadScript(src) {
