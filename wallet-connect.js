@@ -9,11 +9,10 @@ class WalletConnector {
             console.log('Attempting to connect to Trust Wallet...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Trust Wallet deep link for XRPL with network parameters
-            const deepLink = 'trust://xrpl_connect?' + new URLSearchParams({
-                network: 'mainnet',
-                callback: window.location.href,
-                action: 'connect'
+            // Use WalletConnect format for Trust Wallet with XRPL specifics
+            const deepLink = 'trust://wallet_connect?' + new URLSearchParams({
+                uri: encodeURIComponent(`wc:?chainId=xrpl:1&projectId=3da84389044f209842d3525861bd5d02`),
+                callback: window.location.href
             }).toString();
             
             if (this.isMobile()) {
