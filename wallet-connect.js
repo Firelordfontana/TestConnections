@@ -9,30 +9,32 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load WalletConnect standalone client
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@walletconnect/standalone@2.10.6/dist/index.umd.js';
-            document.head.appendChild(script);
-
-            await new Promise((resolve) => script.onload = resolve);
-
-            // Initialize the client
-            const client = await window.WalletConnectStandalone.init({
-                projectId: '3da84389044f209842d3525861bd5d02'
+            // Load WalletConnect Core SDK
+            await this.loadScript('https://unpkg.com/@walletconnect/ethereum-provider@2.10.6/dist/index.umd.js');
+            
+            // Initialize WalletConnect
+            const provider = await window.WalletConnectProvider.init({
+                projectId: '3da84389044f209842d3525861bd5d02',
+                chains: ['xrpl:1'],
+                showQrModal: true,
+                metadata: {
+                    name: 'XRPL Demo',
+                    description: 'XRPL Connection Demo',
+                    url: window.location.origin,
+                    icons: ['https://walletconnect.com/walletconnect-logo.png']
+                }
             });
 
-            // Create pairing
-            const { uri } = await client.pair({
-                chains: ['xrpl:1']
-            });
+            console.log('WalletConnect initialized, attempting connection...');
 
-            if (this.isMobile()) {
-                // Direct deep link to Trust Wallet
-                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
-            } else {
-                // Show QR code for desktop
-                this.showQRCode(uri);
-            }
+            // Connect
+            await provider.connect();
+            
+            this.connected = true;
+            this.emit('stateChange', { state: 'connected' });
+            console.log('Connected successfully!');
+
+            return provider;
 
         } catch (error) {
             console.error('Connection error:', error);
@@ -41,30 +43,20 @@ class WalletConnector {
         }
     }
 
-    showQRCode(uri) {
-        const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.top = '50%';
-        container.style.left = '50%';
-        container.style.transform = 'translate(-50%, -50%)';
-        container.style.background = 'white';
-        container.style.padding = '20px';
-        container.style.borderRadius = '10px';
-        container.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-        container.style.zIndex = '1000';
-
-        const qr = new QRCode(container, {
-            text: uri,
-            width: 256,
-            height: 256
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => {
+                console.log(`Script loaded: ${src}`);
+                resolve();
+            };
+            script.onerror = (err) => {
+                console.error(`Script load error: ${src}`, err);
+                reject(err);
+            };
+            document.head.appendChild(script);
         });
-
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'Close';
-        closeButton.onclick = () => container.remove();
-        container.appendChild(closeButton);
-
-        document.body.appendChild(container);
     }
 
     isMobile() {
