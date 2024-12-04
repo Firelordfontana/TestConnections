@@ -2,35 +2,60 @@ class WalletConnector {
     constructor() {
         this.connected = false;
         this.eventListeners = new Map();
+        this.wcUri = null;
     }
 
     async connect() {
         try {
-            console.log('Attempting to connect to Trust Wallet...');
+            console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Use WalletConnect format for Trust Wallet with XRPL specifics
-            const deepLink = 'trust://wallet_connect?' + new URLSearchParams({
-                uri: encodeURIComponent(`wc:?chainId=xrpl:1&projectId=3da84389044f209842d3525861bd5d02`),
-                callback: window.location.href
-            }).toString();
-            
-            if (this.isMobile()) {
-                console.log('Opening Trust Wallet with deep link:', deepLink);
-                // On mobile, directly open Trust Wallet
-                window.location.href = deepLink;
-                
-                // Set a timeout to check if Trust Wallet opened
-                setTimeout(() => {
-                    if (!this.connected) {
-                        // If app didn't open, redirect to app store
-                        window.location.href = 'https://trustwallet.com/dl';
+            // Load WalletConnect Standalone Client
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@walletconnect/standalone@2.10.6/dist/index.umd.js';
+            document.head.appendChild(script);
+
+            await new Promise((resolve) => {
+                script.onload = resolve;
+            });
+
+            // Initialize WalletConnect
+            const connector = await window.WalletConnectStandalone.init({
+                projectId: '3da84389044f209842d3525861bd5d02',
+                metadata: {
+                    name: 'XRPL Demo',
+                    description: 'XRPL Connection Demo',
+                    url: window.location.origin,
+                    icons: ['https://walletconnect.com/walletconnect-logo.png']
+                }
+            });
+
+            // Create connection
+            const { uri, approval } = await connector.connect({
+                requiredNamespaces: {
+                    xrpl: {
+                        methods: ['sign_transaction'],
+                        chains: ['xrpl:1'],
+                        events: ['chainChanged', 'accountsChanged']
                     }
-                }, 1500);
+                }
+            });
+
+            if (this.isMobile()) {
+                // On mobile, open Trust Wallet with WalletConnect URI
+                window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
             } else {
                 // On desktop, show message to use mobile
                 throw new Error('Please open this page on a mobile device with Trust Wallet installed');
             }
+
+            // Wait for connection approval
+            const session = await approval();
+            console.log('Connected!', session);
+            this.connected = true;
+            this.emit('stateChange', { state: 'connected' });
+            return session;
+
         } catch (error) {
             console.error('Connection error:', error);
             this.emit('error', error);
