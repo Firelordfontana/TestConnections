@@ -2,7 +2,6 @@ class WalletConnector {
     constructor() {
         this.connected = false;
         this.eventListeners = new Map();
-        this.wcUri = null;
     }
 
     async connect() {
@@ -10,49 +9,30 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load required scripts
-            await Promise.all([
-                this.loadScript('https://unpkg.com/@walletconnect/sign-client@2.10.6'),
-                this.loadScript('https://unpkg.com/@walletconnect/utils@2.10.6')
-            ]);
+            // Load WalletConnect standalone client
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@walletconnect/standalone@2.10.6/dist/index.umd.js';
+            document.head.appendChild(script);
 
-            console.log('Scripts loaded, initializing client...');
-            
-            const signClient = await window.SignClient.init({
-                projectId: '3da84389044f209842d3525861bd5d02',
-                metadata: {
-                    name: 'XRPL Demo',
-                    description: 'XRPL Connection Demo',
-                    url: window.location.origin,
-                    icons: ['https://walletconnect.com/walletconnect-logo.png']
-                }
+            await new Promise((resolve) => script.onload = resolve);
+
+            // Initialize the client
+            const client = await window.WalletConnectStandalone.init({
+                projectId: '3da84389044f209842d3525861bd5d02'
             });
 
-            console.log('Client initialized, creating connection...');
-
-            const { uri, approval } = await signClient.connect({
-                requiredNamespaces: {
-                    xrpl: {
-                        methods: ['sign_transaction'],
-                        chains: ['xrpl:1'],
-                        events: []
-                    }
-                }
+            // Create pairing
+            const { uri } = await client.pair({
+                chains: ['xrpl:1']
             });
 
             if (this.isMobile()) {
-                console.log('Mobile device detected, opening Trust Wallet');
-                window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
+                // Direct deep link to Trust Wallet
+                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
             } else {
-                console.log('Desktop device detected, showing QR code');
+                // Show QR code for desktop
                 this.showQRCode(uri);
             }
-
-            const session = await approval();
-            console.log('Connection approved:', session);
-            this.connected = true;
-            this.emit('stateChange', { state: 'connected' });
-            return session;
 
         } catch (error) {
             console.error('Connection error:', error);
@@ -61,18 +41,7 @@ class WalletConnector {
         }
     }
 
-    loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
     showQRCode(uri) {
-        // Create QR code container
         const container = document.createElement('div');
         container.style.position = 'fixed';
         container.style.top = '50%';
@@ -84,14 +53,12 @@ class WalletConnector {
         container.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
         container.style.zIndex = '1000';
 
-        // Add QR code
         const qr = new QRCode(container, {
             text: uri,
             width: 256,
             height: 256
         });
 
-        // Add close button
         const closeButton = document.createElement('button');
         closeButton.textContent = 'Close';
         closeButton.onclick = () => container.remove();
