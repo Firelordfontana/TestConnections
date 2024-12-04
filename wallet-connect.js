@@ -10,20 +10,31 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load WalletConnect Web3Modal
+            // Load WalletConnect Core
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@web3modal/standalone@2.4.1/dist/index.umd.js';
+            script.src = 'https://unpkg.com/@walletconnect/web3modal@2.7.1/dist/index.umd.js';
             document.head.appendChild(script);
 
             await new Promise((resolve) => {
-                script.onload = resolve;
+                script.onload = () => {
+                    console.log('WalletConnect script loaded');
+                    resolve();
+                };
+                script.onerror = (error) => {
+                    console.error('Script load error:', error);
+                    throw new Error('Failed to load WalletConnect');
+                };
             });
 
-            // Initialize Web3Modal
-            const web3Modal = new window.Web3Modal.standalone({
+            if (!window.Web3Modal) {
+                throw new Error('Web3Modal not loaded properly');
+            }
+
+            console.log('Creating Web3Modal instance');
+            const web3Modal = new window.Web3Modal({
                 projectId: '3da84389044f209842d3525861bd5d02',
-                chains: ['xrpl:1'],
-                walletConnectVersion: 2,
+                standaloneChains: ['xrpl:1'],
+                defaultChain: 'xrpl:1',
                 metadata: {
                     name: 'XRPL Demo',
                     description: 'XRPL Connection Demo',
@@ -33,45 +44,17 @@ class WalletConnector {
             });
 
             if (this.isMobile()) {
-                // On mobile, show QR or open Trust Wallet
-                const uri = await web3Modal.getWalletConnectUri();
-                console.log('Opening Trust Wallet with WalletConnect URI');
-                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
+                console.log('Mobile device detected, opening Trust Wallet');
+                const wcUri = await web3Modal.connect();
+                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(wcUri)}`;
             } else {
-                // On desktop, show QR code modal
-                console.log('Showing QR code for desktop');
-                await web3Modal.openModal();
+                console.log('Desktop device detected, showing QR code');
+                const session = await web3Modal.connect();
+                console.log('Connection successful:', session);
+                this.connected = true;
+                this.emit('stateChange', { state: 'connected' });
+                return session;
             }
-
-            // Listen for connection events
-            web3Modal.subscribeModal((state) => {
-                if (state.open) {
-                    console.log('Modal opened');
-                } else {
-                    console.log('Modal closed');
-                }
-            });
-
-            return new Promise((resolve, reject) => {
-                web3Modal.on('connect', (session) => {
-                    console.log('Connected!', session);
-                    this.connected = true;
-                    this.emit('stateChange', { state: 'connected' });
-                    resolve(session);
-                });
-
-                web3Modal.on('error', (error) => {
-                    console.error('Connection error:', error);
-                    reject(error);
-                });
-
-                // Add timeout
-                setTimeout(() => {
-                    if (!this.connected) {
-                        reject(new Error('Connection timeout'));
-                    }
-                }, 30000);
-            });
 
         } catch (error) {
             console.error('Connection error:', error);
