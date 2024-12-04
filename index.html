@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet Connection</title>
+    <style>
+        .qr-container {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        #loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #error-message {
+            display: none;
+            color: red;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid red;
+            border-radius: 5px;
+        }
+
+        .status-connected { color: green; }
+        .status-error { color: red; }
+        .status-connecting { color: orange; }
+        
+        .wallet-connect-btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .wallet-connect-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="connection-status" class="status-disconnected">Not connected</div>
+    
+    <button class="wallet-connect-btn" onclick="handleConnect('trust')">
+        Connect Trust Wallet
+    </button>
+    <button class="wallet-connect-btn" onclick="handleConnect('walletconnect')">
+        Connect with WalletConnect
+    </button>
+    
+    <div id="error-message"></div>
+    
+    <div id="loader">
+        <div class="spinner"></div>
+    </div>
+    
+    <div class="qr-container" id="qr-modal">
+        <canvas id="qr-canvas"></canvas>
+        <button onclick="closeQRModal()">Close</button>
+    </div>
+
+    <script src="config.js" type="module"></script>
+    <script src="wallet-connect.js" type="module"></script>
+    <script src="app.js" type="module"></script>
+</body>
+</html> 
