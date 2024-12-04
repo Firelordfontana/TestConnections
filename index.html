@@ -23,6 +23,11 @@
             margin: 20px;
             padding: 10px;
         }
+
+        .loading {
+            display: inline-block;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -41,11 +46,13 @@
 
         connectBtn.addEventListener("click", async () => {
             try {
+                connectBtn.disabled = true;
                 statusDiv.textContent = "Connecting...";
                 await wallet.connect();
             } catch (error) {
                 console.error("Connection error:", error);
                 statusDiv.textContent = error.message;
+                connectBtn.disabled = false;
             }
         });
     </script>
