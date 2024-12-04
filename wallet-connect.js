@@ -10,31 +10,16 @@ class WalletConnector {
             console.log('Initializing WalletConnect...');
             this.emit('stateChange', { state: 'connecting' });
 
-            // Load WalletConnect Core
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@walletconnect/web3modal@2.7.1/dist/index.umd.js';
-            document.head.appendChild(script);
+            // Load required scripts
+            await Promise.all([
+                this.loadScript('https://unpkg.com/@walletconnect/sign-client@2.10.6'),
+                this.loadScript('https://unpkg.com/@walletconnect/utils@2.10.6')
+            ]);
 
-            await new Promise((resolve) => {
-                script.onload = () => {
-                    console.log('WalletConnect script loaded');
-                    resolve();
-                };
-                script.onerror = (error) => {
-                    console.error('Script load error:', error);
-                    throw new Error('Failed to load WalletConnect');
-                };
-            });
-
-            if (!window.Web3Modal) {
-                throw new Error('Web3Modal not loaded properly');
-            }
-
-            console.log('Creating Web3Modal instance');
-            const web3Modal = new window.Web3Modal({
+            console.log('Scripts loaded, initializing client...');
+            
+            const signClient = await window.SignClient.init({
                 projectId: '3da84389044f209842d3525861bd5d02',
-                standaloneChains: ['xrpl:1'],
-                defaultChain: 'xrpl:1',
                 metadata: {
                     name: 'XRPL Demo',
                     description: 'XRPL Connection Demo',
@@ -43,24 +28,76 @@ class WalletConnector {
                 }
             });
 
+            console.log('Client initialized, creating connection...');
+
+            const { uri, approval } = await signClient.connect({
+                requiredNamespaces: {
+                    xrpl: {
+                        methods: ['sign_transaction'],
+                        chains: ['xrpl:1'],
+                        events: []
+                    }
+                }
+            });
+
             if (this.isMobile()) {
                 console.log('Mobile device detected, opening Trust Wallet');
-                const wcUri = await web3Modal.connect();
-                window.location.href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(wcUri)}`;
+                window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
             } else {
                 console.log('Desktop device detected, showing QR code');
-                const session = await web3Modal.connect();
-                console.log('Connection successful:', session);
-                this.connected = true;
-                this.emit('stateChange', { state: 'connected' });
-                return session;
+                this.showQRCode(uri);
             }
+
+            const session = await approval();
+            console.log('Connection approved:', session);
+            this.connected = true;
+            this.emit('stateChange', { state: 'connected' });
+            return session;
 
         } catch (error) {
             console.error('Connection error:', error);
             this.emit('error', error);
             throw error;
         }
+    }
+
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    showQRCode(uri) {
+        // Create QR code container
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        container.style.background = 'white';
+        container.style.padding = '20px';
+        container.style.borderRadius = '10px';
+        container.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        container.style.zIndex = '1000';
+
+        // Add QR code
+        const qr = new QRCode(container, {
+            text: uri,
+            width: 256,
+            height: 256
+        });
+
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.onclick = () => container.remove();
+        container.appendChild(closeButton);
+
+        document.body.appendChild(container);
     }
 
     isMobile() {
