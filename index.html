@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Trust Wallet XRPL Connect</title>
-    <link rel="stylesheet" href="https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.css" />
     <style>
         .container {
             max-width: 600px;
@@ -44,20 +43,20 @@
     </div>
 
     <script type="module">
-        import WalletConnector from "./wallet-connect.js";
+        import WalletConnector from './wallet-connect.js';
 
         const wallet = new WalletConnector();
-        const connectBtn = document.getElementById("connectBtn");
-        const statusDiv = document.getElementById("status");
+        const connectBtn = document.getElementById('connectBtn');
+        const statusDiv = document.getElementById('status');
 
-        connectBtn.addEventListener("click", async () => {
+        connectBtn.addEventListener('click', async () => {
             try {
                 connectBtn.disabled = true;
-                statusDiv.textContent = "Initializing WalletConnect...";
+                statusDiv.textContent = 'Initializing WalletConnect...';
                 await wallet.connect();
-                statusDiv.textContent = "Connected!";
+                statusDiv.textContent = 'Connected!';
             } catch (error) {
-                console.error("Connection error:", error);
+                console.error('Connection error:', error);
                 statusDiv.textContent = error.message;
                 connectBtn.disabled = false;
             }
